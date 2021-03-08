@@ -273,6 +273,26 @@ func (mm *MethodManager) AuditApply(caller, method string, result int32, sig []b
 	return boltvm.Success(nil)
 }
 
+// MethodStatus return the status of a method,
+// caller should be admin.
+func (mm *MethodManager) MethodStatus(method string) *boltvm.Response {
+	mr := mm.getMethodRegistry()
+
+	if !mr.Initalized {
+		return boltvm.Error("Registry not initialized")
+	}
+
+	item, _, exist, err := mr.Registry.Resolve(bitxid.DID(method))
+	if err != nil {
+		return boltvm.Error(err.Error())
+	}
+	if !exist {
+		return boltvm.Error(methodNotExist(method))
+	}
+
+	return boltvm.Success([]byte(item.Status))
+}
+
 // Audit audits arbitrary status of the method,
 // caller should be admin.
 func (mm *MethodManager) Audit(caller, method string, status string, sig []byte) *boltvm.Response {
@@ -767,6 +787,10 @@ func (mm *MethodManager) RemoveAdmin(caller string, adminToRm string) *boltvm.Re
 
 func callerNotMatchError(c1 string, c2 string) string {
 	return "tx.From(" + c1 + ") and callerDID:(" + c2 + ") not the comply"
+}
+
+func methodNotExist(method string) string {
+	return "method (" + method + ") not exist"
 }
 
 func methodNotBelongError(method string, caller string) string {
