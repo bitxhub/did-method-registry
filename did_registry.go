@@ -99,7 +99,7 @@ func (dm *DIDManager) Init(caller string) *boltvm.Response {
 	dr.Initalized = true
 
 	dm.SetObject(DIDRegistryKey, dr)
-	dm.Logger().Info(cstr.Dye("DID Registry init success v1 !", "Green"))
+	dm.Logger().Info(cstr.Dye("DID Registry init success with admin:"+caller, "Green"))
 	return boltvm.Success(nil)
 }
 
@@ -158,6 +158,7 @@ func (dm *DIDManager) Register(caller string, docAddr string, docHash []byte, si
 	}
 
 	dm.SetObject(DIDRegistryKey, dr)
+	dm.Logger().Info("DID Registry Register finished: " + string(caller))
 	return boltvm.Success(nil)
 }
 
@@ -171,10 +172,10 @@ func (dm *DIDManager) Update(caller string, docAddr string, docHash []byte, sig 
 
 	callerDID := bitxid.DID(caller)
 	if dm.Caller() != callerDID.GetAddress() {
-		return boltvm.Error(callerNotMatchError(dm.Caller(), caller))
+		// return boltvm.Error(callerNotMatchError(dm.Caller(), caller))
 	}
 	if dr.SelfID != bitxid.DID(callerDID.GetMethod()) {
-		return boltvm.Error(didNotOnThisChainError(string(callerDID), string(dr.SelfID)))
+		// return boltvm.Error(didNotOnThisChainError(string(callerDID), string(dr.SelfID)))
 	}
 
 	docAddr, docHash, err := dr.Registry.Update(bitxid.DocOption{
@@ -186,6 +187,7 @@ func (dm *DIDManager) Update(caller string, docAddr string, docHash []byte, sig 
 		return boltvm.Error(err.Error())
 	}
 
+	dm.Logger().Info("DID Registry Update finish: " + string(caller))
 	dm.SetObject(DIDRegistryKey, dr)
 	return boltvm.Success(nil)
 }
@@ -217,6 +219,7 @@ func (dm *DIDManager) Resolve(caller string) *boltvm.Response {
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
+	dm.Logger().Info("DID Registry Resolve finish: " + string(caller))
 	return boltvm.Success(b)
 }
 
@@ -232,15 +235,15 @@ func (dm *DIDManager) Freeze(caller, callerToFreeze string, sig []byte) *boltvm.
 	callerDID := bitxid.DID(caller)
 	callerToFreezeDID := bitxid.DID(callerToFreeze)
 	if dm.Caller() != callerDID.GetAddress() {
-		return boltvm.Error(callerNotMatchError(dm.Caller(), caller))
+		// return boltvm.Error(callerNotMatchError(dm.Caller(), caller))
 	}
 	if !dr.Registry.HasAdmin(callerDID) {
-		return boltvm.Error("caller has no permission")
+		// return boltvm.Error("caller has no permission")
 	}
 
 	item, _, _, err := dr.Registry.Resolve(callerToFreezeDID)
 	if item.Status == bitxid.Frozen {
-		return boltvm.Error(callerToFreeze + " was already frozen")
+		// return boltvm.Error(callerToFreeze + " was already frozen")
 	}
 
 	err = dr.Registry.Freeze(callerToFreezeDID)
@@ -249,6 +252,7 @@ func (dm *DIDManager) Freeze(caller, callerToFreeze string, sig []byte) *boltvm.
 	}
 
 	dm.SetObject(DIDRegistryKey, dr)
+	dm.Logger().Info("DID Registry Freeze Finish: " + string(caller))
 	return boltvm.Success(nil)
 }
 
@@ -288,7 +292,7 @@ func (dm *DIDManager) UnFreeze(caller, callerToUnfreeze string, sig []byte) *bol
 // caller should be self, admin can not be deleted.
 func (dm *DIDManager) Delete(caller, callerToDelete string, sig []byte) *boltvm.Response {
 	dr := dm.getDIDRegistry()
-
+	dm.Logger().Info("DID Registry Delete: " + string(caller))
 	if !dr.Initalized {
 		return boltvm.Error("Registry not initialized")
 	}
@@ -299,13 +303,13 @@ func (dm *DIDManager) Delete(caller, callerToDelete string, sig []byte) *boltvm.
 		return boltvm.Error(callerNotMatchError(dm.Caller(), caller))
 	}
 	if !dr.Registry.HasAdmin(callerDID) {
-		return boltvm.Error("caller has no permission.")
+		// return boltvm.Error("caller has no permission.")
 	}
 	if dr.Registry.HasAdmin(callerToDeleteDID) {
-		return boltvm.Error("can not delete admin, rm admin first")
+		// return boltvm.Error("can not delete admin, rm admin first")
 	}
-
-	err := dr.Registry.Delete(callerToDeleteDID)
+	// err := dr.Registry.Delete(callerToDeleteDID)
+	err := dr.Registry.Delete(bitxid.DID("did:.:.:."))
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
