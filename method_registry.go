@@ -218,7 +218,9 @@ func (mm *MethodManager) GetConvertMap(caller, method string) *boltvm.Response {
 // Apply applys for a method name.
 func (mm *MethodManager) Apply(caller, method string, sig []byte) *boltvm.Response {
 	mr := mm.getMethodRegistry()
-	mm.Logger().Info("Method Registry Apply: " + string(method))
+
+	startTimeUs := time.Now().UnixNano() / 1e3
+	mm.Logger().Infof("Method.Apply method:%s, time(start) = %s(us)", method, startTimeUs)
 
 	if !mr.Initalized {
 		return boltvm.Error("Registry not initialized")
@@ -237,8 +239,12 @@ func (mm *MethodManager) Apply(caller, method string, sig []byte) *boltvm.Respon
 	if err != nil {
 		return boltvm.Error("apply err, " + err.Error())
 	}
-
 	mm.SetObject(MethodRegistryKey, mr)
+
+	endTimeUs := time.Now().UnixNano() / 1e3
+	mm.Logger().Infof("Method.Apply method:%s, time(end) = %s(us)", method, endTimeUs)
+	mm.Logger().Infof("Method.Apply method:%s, time(start - end) = %s(us)", method, endTimeUs-startTimeUs)
+
 	return boltvm.Success(nil)
 }
 
@@ -246,6 +252,9 @@ func (mm *MethodManager) Apply(caller, method string, sig []byte) *boltvm.Respon
 // caller should be admin.
 func (mm *MethodManager) AuditApply(caller, method string, result int32, sig []byte) *boltvm.Response {
 	mr := mm.getMethodRegistry()
+
+	startTimeUs := time.Now().UnixNano() / 1e3
+	mm.Logger().Infof("Method.AuditApply method:%s, time(start) = %s(us)", method, startTimeUs)
 
 	if !mr.Initalized {
 		return boltvm.Error("Registry not initialized")
@@ -270,9 +279,12 @@ func (mm *MethodManager) AuditApply(caller, method string, result int32, sig []b
 	if err != nil {
 		return boltvm.Error("audit apply err, " + err.Error())
 	}
-
-	mm.Logger().Info("Method Registry finished AuditApply : " + string(method))
 	mm.SetObject(MethodRegistryKey, mr)
+
+	endTimeUs := time.Now().UnixNano() / 1e3
+	mm.Logger().Infof("Method.AuditApply method:%s, time(end) = %s(us)", method, endTimeUs)
+	mm.Logger().Infof("Method.AuditApply method:%s, time(start - end) = %s(us)", method, endTimeUs-startTimeUs)
+
 	return boltvm.Success(nil)
 }
 
@@ -280,6 +292,9 @@ func (mm *MethodManager) AuditApply(caller, method string, result int32, sig []b
 // caller should be admin.
 func (mm *MethodManager) Audit(caller, method string, status string, sig []byte) *boltvm.Response {
 	mr := mm.getMethodRegistry()
+
+	startTimeUs := time.Now().UnixNano() / 1e3
+	mm.Logger().Infof("Method.Audit method:%s, time(start) = %s(us)", method, startTimeUs)
 
 	if !mr.Initalized {
 		return boltvm.Error("Registry not initialized")
@@ -297,15 +312,21 @@ func (mm *MethodManager) Audit(caller, method string, status string, sig []byte)
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
-
 	mm.SetObject(MethodRegistryKey, mr)
+
+	endTimeUs := time.Now().UnixNano() / 1e3
+	mm.Logger().Infof("Method.Audit method:%s, time(end) = %s(us)", method, endTimeUs)
+	mm.Logger().Infof("Method.Audit method:%s, time(start - end) = %s(us)", method, endTimeUs-startTimeUs)
+
 	return boltvm.Success(nil)
 }
 
 // Register anchors infomation for the method.
 func (mm *MethodManager) Register(caller, method string, docAddr string, docHash []byte, sig []byte) *boltvm.Response {
 	mr := mm.getMethodRegistry()
-	mm.Logger().Info("Method Registry Register: " + string(method))
+
+	startTimeUs := time.Now().UnixNano() / 1e3
+	mm.Logger().Infof("Method.Register method:%s, time(start) = %s(us)", method, startTimeUs)
 
 	if !mr.Initalized {
 		return boltvm.Error("Registry not initialized")
@@ -334,40 +355,44 @@ func (mm *MethodManager) Register(caller, method string, docAddr string, docHash
 		return boltvm.Error("register err, " + err.Error())
 	}
 
-	// item, _, _, err = mr.Registry.Resolve(bitxid.DID(method))
-	// if err != nil {
-	// 	return boltvm.Error(err.Error())
-	// }
+	item, _, _, err = mr.Registry.Resolve(bitxid.DID(method))
+	if err != nil {
+		return boltvm.Error(err.Error())
+	}
 
-	// mm.SetObject(MethodRegistryKey, mr)
-	// data, err := bitxid.Struct2Bytes(item)
+	mm.SetObject(MethodRegistryKey, mr)
+	data, err := bitxid.Struct2Bytes(item)
 
-	// // ibtp without index
-	// ibtps, err := mr.constructIBTPs(
-	// 	string(constant.MethodRegistryContractAddr),
-	// 	"Synchronize",
-	// 	string(mr.SelfID),
-	// 	func(toDIDs []bitxid.DID) []string {
-	// 		var tos []string
-	// 		for _, to := range toDIDs {
-	// 			tos = append(tos, string(to))
-	// 		}
-	// 		return tos
-	// 	}(mr.ChildIDs),
-	// 	data,
-	// )
-	// if err != nil {
-	// 	return boltvm.Error(err.Error())
-	// }
+	// ibtp without index
+	ibtps, err := mr.constructIBTPs(
+		string(constant.MethodRegistryContractAddr),
+		"Synchronize",
+		string(mr.SelfID),
+		func(toDIDs []bitxid.DID) []string {
+			var tos []string
+			for _, to := range toDIDs {
+				tos = append(tos, string(to))
+			}
+			return tos
+		}(mr.ChildIDs),
+		data,
+	)
+	if err != nil {
+		return boltvm.Error(err.Error())
+	}
 
-	// ibtpsBytes, err := ibtps.Marshal()
-	// if err != nil {
-	// 	return boltvm.Error(err.Error())
-	// }
+	ibtpsBytes, err := ibtps.Marshal()
+	if err != nil {
+		return boltvm.Error(err.Error())
+	}
 
-	// return mm.CrossInvoke(constant.InterRelayBrokerContractAddr.String(), "RecordIBTPs", pb.Bytes(ibtpsBytes))
+	endTimeUs := time.Now().UnixNano() / 1e3
+	mm.Logger().Infof("Method.Register method:%s, time(end) = %s(us)", method, endTimeUs)
+	mm.Logger().Infof("Method.Register method:%s, time(start - end) = %s(us)", method, endTimeUs-startTimeUs)
 
-	return boltvm.Success(nil)
+	return mm.CrossInvoke(constant.InterRelayBrokerContractAddr.String(), "RecordIBTPs", pb.Bytes(ibtpsBytes))
+
+	// return boltvm.Success(nil)
 	// TODO: construct chain multi sigs
 	// return mr.synchronizeOut(string(callerDID), item, [][]byte{[]byte(".")})
 }
@@ -424,7 +449,9 @@ type Event struct {
 // Update updates method infomation.
 func (mm *MethodManager) Update(caller, method string, docAddr string, docHash []byte, sig []byte) *boltvm.Response {
 	mr := mm.getMethodRegistry()
-	mm.Logger().Info("Method Registry Update: " + string(method))
+
+	startTimeUs := time.Now().UnixNano() / 1e3
+	mm.Logger().Infof("Method.Update method:%s, time(start) = %s(us)", caller, startTimeUs)
 
 	if !mr.Initalized {
 		return boltvm.Error("Registry not initialized")
@@ -447,15 +474,21 @@ func (mm *MethodManager) Update(caller, method string, docAddr string, docHash [
 	if err != nil {
 		return boltvm.Error("update err, " + err.Error())
 	}
-
 	mm.SetObject(MethodRegistryKey, mr)
+
+	endTimeUs := time.Now().UnixNano() / 1e3
+	mm.Logger().Infof("Method.Update method:%s, time(end) = %s(us)", method, endTimeUs)
+	mm.Logger().Infof("Method.Update method:%s, time(start - end) = %s(us)", method, endTimeUs-startTimeUs)
+
 	return boltvm.Success(nil)
 }
 
 // Resolve gets all infomation for the method in this registry.
 func (mm *MethodManager) Resolve(method string) *boltvm.Response {
 	mr := mm.getMethodRegistry()
-	mm.Logger().Info("Method Registry Resolve: " + string(method))
+
+	startTimeUs := time.Now().UnixNano() / 1e3
+	mm.Logger().Infof("Method.Resolve method:%s, time(start) = %s(us)", method, startTimeUs)
 
 	if !mr.Initalized {
 		return boltvm.Error("Registry not initialized")
@@ -515,6 +548,10 @@ func (mm *MethodManager) Resolve(method string) *boltvm.Response {
 		return boltvm.Error(err.Error())
 	}
 
+	endTimeUs := time.Now().UnixNano() / 1e3
+	mm.Logger().Infof("Method.Resolve method:%s, time(end) = %s(us)", method, endTimeUs)
+	mm.Logger().Infof("Method.Resolve method:%s, time(start - end) = %s(us)", method, endTimeUs-startTimeUs)
+
 	return boltvm.Success(b)
 }
 
@@ -522,7 +559,9 @@ func (mm *MethodManager) Resolve(method string) *boltvm.Response {
 // caller should be admin.
 func (mm *MethodManager) Freeze(caller, method string, sig []byte) *boltvm.Response {
 	mr := mm.getMethodRegistry()
-	mm.Logger().Info("Method Registry Freeze: " + string(method))
+
+	startTimeUs := time.Now().UnixNano() / 1e3
+	mm.Logger().Infof("Method.Freeze method:%s, time(start) = %s(us)", method, startTimeUs)
 
 	if !mr.Initalized {
 		return boltvm.Error("Registry not initialized")
@@ -545,8 +584,12 @@ func (mm *MethodManager) Freeze(caller, method string, sig []byte) *boltvm.Respo
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
-
 	mm.SetObject(MethodRegistryKey, mr)
+
+	endTimeUs := time.Now().UnixNano() / 1e3
+	mm.Logger().Infof("Method.Freeze method:%s, time(end) = %s(us)", method, endTimeUs)
+	mm.Logger().Infof("Method.Freeze method:%s, time(start - end) = %s(us)", method, endTimeUs-startTimeUs)
+
 	return boltvm.Success(nil)
 }
 
@@ -554,7 +597,9 @@ func (mm *MethodManager) Freeze(caller, method string, sig []byte) *boltvm.Respo
 // caller should be admin.
 func (mm *MethodManager) UnFreeze(caller, method string, sig []byte) *boltvm.Response {
 	mr := mm.getMethodRegistry()
-	mm.Logger().Info("Method Registry UnFreeze: " + string(method))
+
+	startTimeUs := time.Now().UnixNano() / 1e3
+	mm.Logger().Infof("Method.UnFreeze method:%s, time(start) = %s(us)", method, startTimeUs)
 
 	if !mr.Initalized {
 		return boltvm.Error("Registry not initialized")
@@ -577,8 +622,12 @@ func (mm *MethodManager) UnFreeze(caller, method string, sig []byte) *boltvm.Res
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
-
 	mm.SetObject(MethodRegistryKey, mr)
+
+	endTimeUs := time.Now().UnixNano() / 1e3
+	mm.Logger().Infof("Method.UnFreeze method:%s, time(end) = %s(us)", method, endTimeUs)
+	mm.Logger().Infof("Method.UnFreeze method:%s, time(start - end) = %s(us)", method, endTimeUs-startTimeUs)
+
 	return boltvm.Success(nil)
 }
 
@@ -587,6 +636,9 @@ func (mm *MethodManager) UnFreeze(caller, method string, sig []byte) *boltvm.Res
 func (mm *MethodManager) Delete(caller, method string, sig []byte) *boltvm.Response {
 	mr := mm.getMethodRegistry()
 	mm.Logger().Info("Method Registry Delete: " + string(method))
+
+	startTimeUs := time.Now().UnixNano() / 1e3
+	mm.Logger().Infof("Method.Delete method:%s, time(start) = %s(us)", method, startTimeUs)
 
 	if !mr.Initalized {
 		return boltvm.Error("Registry not initialized")
@@ -607,8 +659,12 @@ func (mm *MethodManager) Delete(caller, method string, sig []byte) *boltvm.Respo
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
-
 	mm.SetObject(MethodRegistryKey, mr)
+
+	endTimeUs := time.Now().UnixNano() / 1e3
+	mm.Logger().Infof("Method.Delete method:%s, time(end) = %s(us)", method, endTimeUs)
+	mm.Logger().Infof("Method.Delete method:%s, time(start - end) = %s(us)", method, endTimeUs-startTimeUs)
+
 	return boltvm.Success(nil)
 }
 

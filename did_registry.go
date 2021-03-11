@@ -3,6 +3,7 @@ package contracts
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/bitxhub/bitxid"
 	"github.com/bitxhub/did-method-registry/converter"
@@ -136,6 +137,9 @@ func (dm *DIDManager) SetMethodID(caller, method string) *boltvm.Response {
 func (dm *DIDManager) Register(caller string, docAddr string, docHash []byte, sig []byte) *boltvm.Response {
 	dr := dm.getDIDRegistry()
 
+	startTimeUs := time.Now().UnixNano() / 1e3
+	dm.Logger().Infof("DID.Register caller:%s, time(start) = %s(us)", caller, startTimeUs)
+
 	if !dr.Initalized {
 		return boltvm.Error("Registry not initialized")
 	}
@@ -158,13 +162,20 @@ func (dm *DIDManager) Register(caller string, docAddr string, docHash []byte, si
 	}
 
 	dm.SetObject(DIDRegistryKey, dr)
-	dm.Logger().Info("DID Registry Register finished: " + string(caller))
+
+	endTimeUs := time.Now().UnixNano() / 1e3
+	dm.Logger().Infof("DID.Register caller:%s, time(end) = %s(us)", caller, endTimeUs)
+	dm.Logger().Infof("DID.Register caller:%s, time(start - end) = %s(us)", caller, endTimeUs-startTimeUs)
+
 	return boltvm.Success(nil)
 }
 
 // Update updates did infomation.
 func (dm *DIDManager) Update(caller string, docAddr string, docHash []byte, sig []byte) *boltvm.Response {
 	dr := dm.getDIDRegistry()
+
+	startTimeUs := time.Now().UnixNano() / 1e3
+	dm.Logger().Infof("DID.Update caller:%s, time(start) = %s(us)", caller, startTimeUs)
 
 	if !dr.Initalized {
 		return boltvm.Error("Registry not initialized")
@@ -189,12 +200,20 @@ func (dm *DIDManager) Update(caller string, docAddr string, docHash []byte, sig 
 
 	dm.Logger().Info("DID Registry Update finish: " + string(caller))
 	dm.SetObject(DIDRegistryKey, dr)
+
+	endTimeUs := time.Now().UnixNano() / 1e3
+	dm.Logger().Infof("DID.Update caller:%s, time(end) = %s(us)", caller, endTimeUs)
+	dm.Logger().Infof("DID.Update caller:%s, time(start - end) = %s(us)", caller, endTimeUs-startTimeUs)
+
 	return boltvm.Success(nil)
 }
 
 // Resolve gets all infomation of the did.
 func (dm *DIDManager) Resolve(caller string) *boltvm.Response {
 	dr := dm.getDIDRegistry()
+
+	startTimeUs := time.Now().UnixNano() / 1e3
+	dm.Logger().Infof("DID.Resolve caller:%s, time(start) = %s(us)", caller, startTimeUs)
 
 	if !dr.Initalized {
 		return boltvm.Error("Registry not initialized")
@@ -219,7 +238,11 @@ func (dm *DIDManager) Resolve(caller string) *boltvm.Response {
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
-	dm.Logger().Info("DID Registry Resolve finish: " + string(caller))
+
+	endTimeUs := time.Now().UnixNano() / 1e3
+	dm.Logger().Infof("DID.Resolve caller:%s, time(end) = %s(us)", caller, endTimeUs)
+	dm.Logger().Infof("DID.Resolve caller:%s, time(start - end) = %s(us)", caller, endTimeUs-startTimeUs)
+
 	return boltvm.Success(b)
 }
 
@@ -227,6 +250,9 @@ func (dm *DIDManager) Resolve(caller string) *boltvm.Response {
 // caller should be admin.
 func (dm *DIDManager) Freeze(caller, callerToFreeze string, sig []byte) *boltvm.Response {
 	dr := dm.getDIDRegistry()
+
+	startTimeUs := time.Now().UnixNano() / 1e3
+	dm.Logger().Infof("DID.Freeze caller:%s, time(start) = %s(us)", caller, startTimeUs)
 
 	if !dr.Initalized {
 		return boltvm.Error("Registry not initialized")
@@ -252,7 +278,11 @@ func (dm *DIDManager) Freeze(caller, callerToFreeze string, sig []byte) *boltvm.
 	}
 
 	dm.SetObject(DIDRegistryKey, dr)
-	dm.Logger().Info("DID Registry Freeze Finish: " + string(caller))
+
+	endTimeUs := time.Now().UnixNano() / 1e3
+	dm.Logger().Infof("DID.Freeze caller:%s, time(end) = %s(us)", caller, endTimeUs)
+	dm.Logger().Infof("DID.Freeze caller:%s, time(start - end) = %s(us)", caller, endTimeUs-startTimeUs)
+
 	return boltvm.Success(nil)
 }
 
@@ -260,6 +290,9 @@ func (dm *DIDManager) Freeze(caller, callerToFreeze string, sig []byte) *boltvm.
 // caller should be admin.
 func (dm *DIDManager) UnFreeze(caller, callerToUnfreeze string, sig []byte) *boltvm.Response {
 	dr := dm.getDIDRegistry()
+
+	startTimeUs := time.Now().UnixNano() / 1e3
+	dm.Logger().Infof("DID.UnFreeze caller:%s, time(start) = %s(us)", caller, startTimeUs)
 
 	if !dr.Initalized {
 		return boltvm.Error("Registry not initialized")
@@ -283,8 +316,12 @@ func (dm *DIDManager) UnFreeze(caller, callerToUnfreeze string, sig []byte) *bol
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
-
 	dm.SetObject(DIDRegistryKey, dr)
+
+	endTimeUs := time.Now().UnixNano() / 1e3
+	dm.Logger().Infof("DID.UnFreeze caller:%s, time(end) = %s(us)", caller, endTimeUs)
+	dm.Logger().Infof("DID.UnFreeze caller:%s, time(start - end) = %s(us)", caller, endTimeUs-startTimeUs)
+
 	return boltvm.Success(nil)
 }
 
@@ -292,7 +329,10 @@ func (dm *DIDManager) UnFreeze(caller, callerToUnfreeze string, sig []byte) *bol
 // caller should be self, admin can not be deleted.
 func (dm *DIDManager) Delete(caller, callerToDelete string, sig []byte) *boltvm.Response {
 	dr := dm.getDIDRegistry()
-	dm.Logger().Info("DID Registry Delete: " + string(caller))
+
+	startTimeUs := time.Now().UnixNano() / 1e3
+	dm.Logger().Infof("DID.Delete caller:%s, time(start) = %s(us)", caller, startTimeUs)
+
 	if !dr.Initalized {
 		return boltvm.Error("Registry not initialized")
 	}
@@ -313,8 +353,12 @@ func (dm *DIDManager) Delete(caller, callerToDelete string, sig []byte) *boltvm.
 	if err != nil {
 		return boltvm.Error(err.Error())
 	}
-
 	dm.SetObject(DIDRegistryKey, dr)
+
+	endTimeUs := time.Now().UnixNano() / 1e3
+	dm.Logger().Infof("DID.Delete caller:%s, time(end) = %s(us)", caller, endTimeUs)
+	dm.Logger().Infof("DID.Delete caller:%s, time(start - end) = %s(us)", caller, endTimeUs-startTimeUs)
+
 	return boltvm.Success(nil)
 }
 
