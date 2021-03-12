@@ -138,7 +138,7 @@ func (dm *DIDManager) Register(caller string, docAddr string, docHash []byte, si
 	dr := dm.getDIDRegistry()
 
 	startTimeUs := time.Now().UnixNano() / 1e3
-	dm.Logger().Infof("DID.Register caller:%s, time(start) = %s(us)", caller, startTimeUs)
+	dm.Logger().Infof("DID.Register caller:%s time(start) = %d(us)", caller, startTimeUs)
 
 	if !dr.Initalized {
 		return boltvm.Error("Registry not initialized")
@@ -164,8 +164,8 @@ func (dm *DIDManager) Register(caller string, docAddr string, docHash []byte, si
 	dm.SetObject(DIDRegistryKey, dr)
 
 	endTimeUs := time.Now().UnixNano() / 1e3
-	dm.Logger().Infof("DID.Register caller:%s, time(end) = %s(us)", caller, endTimeUs)
-	dm.Logger().Infof("DID.Register caller:%s, time(start - end) = %s(us)", caller, endTimeUs-startTimeUs)
+	dm.Logger().Infof("DID.Register caller:%s time(end) = %d(us)", caller, endTimeUs)
+	dm.Logger().Infof("DID.Register caller:%s time(start - end) = %d(us)", caller, endTimeUs-startTimeUs)
 
 	return boltvm.Success(nil)
 }
@@ -175,7 +175,7 @@ func (dm *DIDManager) Update(caller string, docAddr string, docHash []byte, sig 
 	dr := dm.getDIDRegistry()
 
 	startTimeUs := time.Now().UnixNano() / 1e3
-	dm.Logger().Infof("DID.Update caller:%s, time(start) = %s(us)", caller, startTimeUs)
+	dm.Logger().Infof("DID.Update caller:%s time(start) = %d(us)", caller, startTimeUs)
 
 	if !dr.Initalized {
 		return boltvm.Error("Registry not initialized")
@@ -202,8 +202,8 @@ func (dm *DIDManager) Update(caller string, docAddr string, docHash []byte, sig 
 	dm.SetObject(DIDRegistryKey, dr)
 
 	endTimeUs := time.Now().UnixNano() / 1e3
-	dm.Logger().Infof("DID.Update caller:%s, time(end) = %s(us)", caller, endTimeUs)
-	dm.Logger().Infof("DID.Update caller:%s, time(start - end) = %s(us)", caller, endTimeUs-startTimeUs)
+	dm.Logger().Infof("DID.Update caller:%s time(end) = %d(us)", caller, endTimeUs)
+	dm.Logger().Infof("DID.Update caller:%s time(start - end) = %d(us)", caller, endTimeUs-startTimeUs)
 
 	return boltvm.Success(nil)
 }
@@ -213,7 +213,7 @@ func (dm *DIDManager) Resolve(caller string) *boltvm.Response {
 	dr := dm.getDIDRegistry()
 
 	startTimeUs := time.Now().UnixNano() / 1e3
-	dm.Logger().Infof("DID.Resolve caller:%s, time(start) = %s(us)", caller, startTimeUs)
+	dm.Logger().Infof("DID.Resolve caller:%s time(start) = %d(us)", caller, startTimeUs)
 
 	if !dr.Initalized {
 		return boltvm.Error("Registry not initialized")
@@ -240,8 +240,8 @@ func (dm *DIDManager) Resolve(caller string) *boltvm.Response {
 	}
 
 	endTimeUs := time.Now().UnixNano() / 1e3
-	dm.Logger().Infof("DID.Resolve caller:%s, time(end) = %s(us)", caller, endTimeUs)
-	dm.Logger().Infof("DID.Resolve caller:%s, time(start - end) = %s(us)", caller, endTimeUs-startTimeUs)
+	dm.Logger().Infof("DID.Resolve caller:%s time(end) = %d(us)", caller, endTimeUs)
+	dm.Logger().Infof("DID.Resolve caller:%s time(start - end) = %d(us)", caller, endTimeUs-startTimeUs)
 
 	return boltvm.Success(b)
 }
@@ -252,7 +252,7 @@ func (dm *DIDManager) Freeze(caller, callerToFreeze string, sig []byte) *boltvm.
 	dr := dm.getDIDRegistry()
 
 	startTimeUs := time.Now().UnixNano() / 1e3
-	dm.Logger().Infof("DID.Freeze caller:%s, time(start) = %s(us)", caller, startTimeUs)
+	dm.Logger().Infof("DID.Freeze caller:%s time(start) = %d(us)", caller, startTimeUs)
 
 	if !dr.Initalized {
 		return boltvm.Error("Registry not initialized")
@@ -280,8 +280,8 @@ func (dm *DIDManager) Freeze(caller, callerToFreeze string, sig []byte) *boltvm.
 	dm.SetObject(DIDRegistryKey, dr)
 
 	endTimeUs := time.Now().UnixNano() / 1e3
-	dm.Logger().Infof("DID.Freeze caller:%s, time(end) = %s(us)", caller, endTimeUs)
-	dm.Logger().Infof("DID.Freeze caller:%s, time(start - end) = %s(us)", caller, endTimeUs-startTimeUs)
+	dm.Logger().Infof("DID.Freeze caller:%s time(end) = %d(us)", caller, endTimeUs)
+	dm.Logger().Infof("DID.Freeze caller:%s time(start - end) = %d(us)", caller, endTimeUs-startTimeUs)
 
 	return boltvm.Success(nil)
 }
@@ -292,7 +292,7 @@ func (dm *DIDManager) UnFreeze(caller, callerToUnfreeze string, sig []byte) *bol
 	dr := dm.getDIDRegistry()
 
 	startTimeUs := time.Now().UnixNano() / 1e3
-	dm.Logger().Infof("DID.UnFreeze caller:%s, time(start) = %s(us)", caller, startTimeUs)
+	dm.Logger().Infof("DID.UnFreeze caller:%s time(start) = %d(us)", caller, startTimeUs)
 
 	if !dr.Initalized {
 		return boltvm.Error("Registry not initialized")
@@ -319,8 +319,8 @@ func (dm *DIDManager) UnFreeze(caller, callerToUnfreeze string, sig []byte) *bol
 	dm.SetObject(DIDRegistryKey, dr)
 
 	endTimeUs := time.Now().UnixNano() / 1e3
-	dm.Logger().Infof("DID.UnFreeze caller:%s, time(end) = %s(us)", caller, endTimeUs)
-	dm.Logger().Infof("DID.UnFreeze caller:%s, time(start - end) = %s(us)", caller, endTimeUs-startTimeUs)
+	dm.Logger().Infof("DID.UnFreeze caller:%s time(end) = %d(us)", caller, endTimeUs)
+	dm.Logger().Infof("DID.UnFreeze caller:%s time(start - end) = %d(us)", caller, endTimeUs-startTimeUs)
 
 	return boltvm.Success(nil)
 }
@@ -331,7 +331,7 @@ func (dm *DIDManager) Delete(caller, callerToDelete string, sig []byte) *boltvm.
 	dr := dm.getDIDRegistry()
 
 	startTimeUs := time.Now().UnixNano() / 1e3
-	dm.Logger().Infof("DID.Delete caller:%s, time(start) = %s(us)", caller, startTimeUs)
+	dm.Logger().Infof("DID.Delete caller:%s time(start) = %d(us)", caller, startTimeUs)
 
 	if !dr.Initalized {
 		return boltvm.Error("Registry not initialized")
@@ -356,8 +356,8 @@ func (dm *DIDManager) Delete(caller, callerToDelete string, sig []byte) *boltvm.
 	dm.SetObject(DIDRegistryKey, dr)
 
 	endTimeUs := time.Now().UnixNano() / 1e3
-	dm.Logger().Infof("DID.Delete caller:%s, time(end) = %s(us)", caller, endTimeUs)
-	dm.Logger().Infof("DID.Delete caller:%s, time(start - end) = %s(us)", caller, endTimeUs-startTimeUs)
+	dm.Logger().Infof("DID.Delete caller:%s time(end) = %d(us)", caller, endTimeUs)
+	dm.Logger().Infof("DID.Delete caller:%s time(start - end) = %d(us)", caller, endTimeUs-startTimeUs)
 
 	return boltvm.Success(nil)
 }
