@@ -46,6 +46,8 @@ github.com/bitxhub/bitxid v0.2.1-0.20210202060800-9fc906ff0954 h1:hY0k0b9WoZKNEN
 github.com/bitxhub/bitxid v0.2.1-0.20210202060800-9fc906ff0954/go.mod h1:fOr+il1qUap5OTo6p4krM3Hsk4OZkGxC30BIjjwNz2c=
 github.com/bitxhub/bitxid v0.2.1-0.20210202065509-f41026693054 h1:zHUepfeDUkmUP5RUaVRcfwgZrdc6kjDQ36zEmuXhiTo=
 github.com/bitxhub/bitxid v0.2.1-0.20210202065509-f41026693054/go.mod h1:fOr+il1qUap5OTo6p4krM3Hsk4OZkGxC30BIjjwNz2c=
+github.com/bitxhub/bitxid v0.2.1-0.20210315092105-e56160fcb5bc h1:4pms4KwUIVC35Z3PMqNQY3oKwq7TSKcXSh8fPzKnPoI=
+github.com/bitxhub/bitxid v0.2.1-0.20210315092105-e56160fcb5bc/go.mod h1:fOr+il1qUap5OTo6p4krM3Hsk4OZkGxC30BIjjwNz2c=
 github.com/bketelsen/crypt v0.0.3-0.20200106085610-5cbc8cc4026c/go.mod h1:MKsuJmJgSg28kpZDP6UIiPt0e0Oz0kqKNGyRaWEPv84=
 github.com/btcsuite/btcd v0.0.0-20190213025234-306aecffea32/go.mod h1:DrZx5ec/dmnfpw9KyYoQyYo7d0KEvTkk/5M/vbZjAr8=
 github.com/btcsuite/btcd v0.0.0-20190523000118-16327141da8c/go.mod h1:3J08xEfcugPacsc34/LKRU2yO7YmuT8yt28J8k2+rrI=
