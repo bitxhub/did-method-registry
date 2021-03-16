@@ -309,7 +309,7 @@ func (dm *DIDManager) UnFreeze(caller, callerToUnfreeze string, sig []byte) *bol
 
 	item, _, _, err := dr.Registry.Resolve(callerToUnfreezeDID)
 	if item.Status != bitxid.Frozen {
-		return boltvm.Error(callerToUnfreeze + " was not frozen")
+		// return boltvm.Error(callerToUnfreeze + " was not frozen")
 	}
 
 	err = dr.Registry.UnFreeze(callerToUnfreezeDID)
