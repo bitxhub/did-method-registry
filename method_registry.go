@@ -3,9 +3,6 @@ package contracts
 import (
 	"encoding/json"
 	"fmt"
-	"os"
-	"time"
-
 	"github.com/bitxhub/bitxid"
 	"github.com/bitxhub/did-method-registry/converter"
 	"github.com/meshplus/bitxhub-core/agency"
@@ -13,6 +10,7 @@ import (
 	"github.com/meshplus/bitxhub-model/constant"
 	"github.com/meshplus/bitxhub-model/pb"
 	"github.com/mitchellh/go-homedir"
+	"os"
 )
 
 const (
@@ -62,6 +60,24 @@ type MethodRegistry struct {
 	IDConverter map[bitxid.DID]string
 }
 
+func UnmarshalRegistry(registryBytes []byte) (interface{}, error) {
+	mr := &MethodRegistry{}
+	err := json.Unmarshal(registryBytes, &mr)
+	if err != nil {
+		return nil, err
+	}
+	return mr.Registry, nil
+}
+
+func UnmarshalMethodDocAddr(methodInfoBytes []byte) (interface{}, error) {
+	info := &MethodInfo{}
+	err := bitxid.Bytes2Struct(methodInfoBytes, info)
+	if err != nil {
+		return "", err
+	}
+	return info.DocAddr, nil
+}
+
 // if you need to use registry table, you have to manully load it, so do docdb
 // returns err if registry is nil
 func (mr *MethodRegistry) loadTable(stub boltvm.Stub) error {
@@ -81,6 +97,8 @@ func NewMethodManager() agency.Contract {
 
 func init() {
 	agency.RegisterContractConstructor("method registry", constant.MethodRegistryContractAddr.Address(), NewMethodManager)
+	agency.RegisterUnmarshalFunc("registry", UnmarshalRegistry)
+	agency.RegisterUnmarshalFunc("methodDocAddr", UnmarshalMethodDocAddr)
 }
 
 // Init sets up the whole registry,
@@ -90,21 +108,23 @@ func (mm *MethodManager) Init(caller string) *boltvm.Response {
 
 	callerDID := bitxid.DID(caller)
 	if mm.Caller() != callerDID.GetAddress() {
-		return boltvm.Error(callerNotMatchError(mm.Caller(), caller))
+		return boltvm.Error(boltvm.DidCallerNotMatchCode, fmt.Sprintf(string(boltvm.DidCallerNotMatchMsg), mm.Caller(), caller))
 	}
 	if mr.Initalized {
-		return boltvm.Error("init err, already init")
+		return boltvm.Error(boltvm.DidRegistryAlreadyInitCode, string(boltvm.DidRegistryAlreadyInitMsg))
 	}
 	s := converter.StubToStorage(mm.Stub)
 	r, err := bitxid.NewMethodRegistry(s, mm.Logger(), bitxid.WithMethodAdmin(callerDID))
 	if err != nil {
-		return boltvm.Error("init err, " + err.Error())
+		msg := fmt.Sprintf("init err, %s", err.Error())
+		return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), msg))
 	}
 
 	mr.Registry = r
 	err = mr.Registry.SetupGenesis()
 	if err != nil {
-		return boltvm.Error("init genesis err, " + err.Error())
+		msg := fmt.Sprintf("init genesis err, %s", err.Error())
+		return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), msg))
 	}
 	mr.SelfID = mr.Registry.GetSelfID()
 	mr.ParentID = "did:bitxhub:relayroot:." // default parent
@@ -124,10 +144,10 @@ func (mm *MethodManager) SetParent(caller, parentID string) *boltvm.Response {
 
 	callerDID := bitxid.DID(caller)
 	if mm.Caller() != callerDID.GetAddress() {
-		return boltvm.Error(callerNotMatchError(mm.Caller(), caller))
+		return boltvm.Error(boltvm.DidCallerNotMatchCode, fmt.Sprintf(string(boltvm.DidCallerNotMatchMsg), mm.Caller(), caller))
 	}
 	if !mr.Registry.HasAdmin(callerDID) { // require Admin
-		return boltvm.Error("caller(" + string(callerDID) + ") has no permission")
+		return boltvm.Error(boltvm.DidCallerNoPermissionCode, fmt.Sprintf(string(boltvm.DidCallerNoPermissionMsg), string(callerDID)))
 	}
 	mr.ParentID = bitxid.DID(parentID)
 
@@ -142,10 +162,10 @@ func (mm *MethodManager) AddChild(caller, childID string) *boltvm.Response {
 
 	callerDID := bitxid.DID(caller)
 	if mm.Caller() != callerDID.GetAddress() {
-		return boltvm.Error(callerNotMatchError(mm.Caller(), caller))
+		return boltvm.Error(boltvm.DidCallerNotMatchCode, fmt.Sprintf(string(boltvm.DidCallerNotMatchMsg), mm.Caller(), caller))
 	}
 	if !mr.Registry.HasAdmin(callerDID) { // require Admin
-		return boltvm.Error("caller(" + string(callerDID) + ") has no permission")
+		return boltvm.Error(boltvm.DidCallerNoPermissionCode, fmt.Sprintf(string(boltvm.DidCallerNoPermissionMsg), string(callerDID)))
 	}
 
 	mr.ChildIDs = append(mr.ChildIDs, bitxid.DID(childID))
@@ -161,10 +181,10 @@ func (mm *MethodManager) RemoveChild(caller, childID string) *boltvm.Response {
 
 	callerDID := bitxid.DID(caller)
 	if mm.Caller() != callerDID.GetAddress() {
-		return boltvm.Error(callerNotMatchError(mm.Caller(), caller))
+		return boltvm.Error(boltvm.DidCallerNotMatchCode, fmt.Sprintf(string(boltvm.DidCallerNotMatchMsg), mm.Caller(), caller))
 	}
 	if !mr.Registry.HasAdmin(callerDID) { // require Admin
-		return boltvm.Error("caller(" + string(callerDID) + ") has no permission")
+		return boltvm.Error(boltvm.DidCallerNoPermissionCode, fmt.Sprintf(string(boltvm.DidCallerNoPermissionMsg), string(callerDID)))
 	}
 
 	for i, child := range mr.ChildIDs {
@@ -192,10 +212,10 @@ func (mm *MethodManager) SetConvertMap(caller, method string, appID string) *bol
 
 	callerDID := bitxid.DID(caller)
 	if mm.Caller() != callerDID.GetAddress() {
-		return boltvm.Error(callerNotMatchError(mm.Caller(), caller))
+		return boltvm.Error(boltvm.DidCallerNotMatchCode, fmt.Sprintf(string(boltvm.DidCallerNotMatchMsg), mm.Caller(), caller))
 	}
 	if !mr.Registry.HasAdmin(callerDID) { // require Admin
-		return boltvm.Error("caller(" + string(callerDID) + ") has no permission")
+		return boltvm.Error(boltvm.DidCallerNoPermissionCode, fmt.Sprintf(string(boltvm.DidCallerNoPermissionMsg), string(callerDID)))
 	}
 
 	mr.setConvertMap(method, appID)
@@ -209,7 +229,7 @@ func (mm *MethodManager) GetConvertMap(caller, method string) *boltvm.Response {
 	mr := mm.getMethodRegistry()
 	callerDID := bitxid.DID(caller)
 	if mm.Caller() != callerDID.GetAddress() {
-		return boltvm.Error(callerNotMatchError(mm.Caller(), caller))
+		return boltvm.Error(boltvm.DidCallerNotMatchCode, fmt.Sprintf(string(boltvm.DidCallerNotMatchMsg), mm.Caller(), caller))
 	}
 	return boltvm.Success([]byte(mr.getConvertMap(method)))
 }
@@ -219,21 +239,22 @@ func (mm *MethodManager) Apply(caller, method string, sig []byte) *boltvm.Respon
 	mr := mm.getMethodRegistry()
 
 	if !mr.Initalized {
-		return boltvm.Error("Registry not initialized")
+		return boltvm.Error(boltvm.DidRegistryNotInitCode, string(boltvm.DidRegistryNotInitMsg))
 	}
 
 	callerDID := bitxid.DID(caller)
 	if mm.Caller() != callerDID.GetAddress() {
-		return boltvm.Error(callerNotMatchError(mm.Caller(), caller))
+		return boltvm.Error(boltvm.DidCallerNotMatchCode, fmt.Sprintf(string(boltvm.DidCallerNotMatchMsg), mm.Caller(), caller))
 	}
 
 	methodDID := bitxid.DID(method)
 	if !methodDID.IsValidFormat() {
-		return boltvm.Error("not valid method format")
+		return boltvm.Error(boltvm.DidMethodNotValidCode, fmt.Sprintf(string(boltvm.DidMethodNotValidMsg), string(methodDID)))
 	}
 	err := mr.Registry.Apply(callerDID, bitxid.DID(method)) // success
 	if err != nil {
-		return boltvm.Error("apply err, " + err.Error())
+		msg := fmt.Sprintf("apply err, %s", err.Error())
+		return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), msg))
 	}
 
 	mm.SetObject(MethodRegistryKey, mr)
@@ -246,15 +267,15 @@ func (mm *MethodManager) AuditApply(caller, method string, result int32, sig []b
 	mr := mm.getMethodRegistry()
 
 	if !mr.Initalized {
-		return boltvm.Error("Registry not initialized")
+		return boltvm.Error(boltvm.DidRegistryNotInitCode, string(boltvm.DidRegistryNotInitMsg))
 	}
 
 	callerDID := bitxid.DID(caller)
 	if mm.Caller() != callerDID.GetAddress() {
-		return boltvm.Error(callerNotMatchError(mm.Caller(), caller))
+		return boltvm.Error(boltvm.DidCallerNotMatchCode, fmt.Sprintf(string(boltvm.DidCallerNotMatchMsg), mm.Caller(), caller))
 	}
 	if !mr.Registry.HasAdmin(callerDID) { // require Admin
-		return boltvm.Error("caller(" + string(callerDID) + ") has no permission")
+		return boltvm.Error(boltvm.DidCallerNoPermissionCode, fmt.Sprintf(string(boltvm.DidCallerNoPermissionMsg), string(callerDID)))
 	}
 
 	var res bool
@@ -266,7 +287,8 @@ func (mm *MethodManager) AuditApply(caller, method string, result int32, sig []b
 	// TODO: verify sig
 	err := mr.Registry.AuditApply(bitxid.DID(method), res)
 	if err != nil {
-		return boltvm.Error("audit apply err, " + err.Error())
+		msg := fmt.Sprintf("audit apply err, %s", err.Error())
+		return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), msg))
 	}
 
 	mm.SetObject(MethodRegistryKey, mr)
@@ -279,20 +301,20 @@ func (mm *MethodManager) Audit(caller, method string, status string, sig []byte)
 	mr := mm.getMethodRegistry()
 
 	if !mr.Initalized {
-		return boltvm.Error("Registry not initialized")
+		return boltvm.Error(boltvm.DidRegistryNotInitCode, string(boltvm.DidRegistryNotInitMsg))
 	}
 
 	callerDID := bitxid.DID(caller)
 	if mm.Caller() != callerDID.GetAddress() {
-		return boltvm.Error(callerNotMatchError(mm.Caller(), caller))
+		return boltvm.Error(boltvm.DidCallerNotMatchCode, fmt.Sprintf(string(boltvm.DidCallerNotMatchMsg), mm.Caller(), caller))
 	}
 
 	if !mr.Registry.HasAdmin(callerDID) {
-		return boltvm.Error("caller(" + string(callerDID) + ") has no permission")
+		return boltvm.Error(boltvm.DidCallerNoPermissionCode, fmt.Sprintf(string(boltvm.DidCallerNoPermissionMsg), string(callerDID)))
 	}
 	err := mr.Registry.Audit(bitxid.DID(method), bitxid.StatusType(status))
 	if err != nil {
-		return boltvm.Error(err.Error())
+		return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), err.Error()))
 	}
 
 	mm.SetObject(MethodRegistryKey, mr)
@@ -304,20 +326,20 @@ func (mm *MethodManager) Register(caller, method string, docAddr string, docHash
 	mr := mm.getMethodRegistry()
 
 	if !mr.Initalized {
-		return boltvm.Error("Registry not initialized")
+		return boltvm.Error(boltvm.DidRegistryNotInitCode, string(boltvm.DidRegistryNotInitMsg))
 	}
 
 	callerDID := bitxid.DID(caller)
 	if mm.Caller() != callerDID.GetAddress() {
-		return boltvm.Error(callerNotMatchError(mm.Caller(), caller))
+		return boltvm.Error(boltvm.DidCallerNotMatchCode, fmt.Sprintf(string(boltvm.DidCallerNotMatchMsg), mm.Caller(), caller))
 	}
 
 	item, _, _, err := mr.Registry.Resolve(bitxid.DID(method))
 	if err != nil {
-		return boltvm.Error(err.Error())
+		return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), err.Error()))
 	}
 	if item.Owner != callerDID {
-		return boltvm.Error(methodNotBelongError(method, caller))
+		return boltvm.Error(boltvm.DidMethodNotBelongCode, fmt.Sprintf(string(boltvm.DidMethodNotBelongMsg), method, caller))
 	}
 	// TODO: verify sig
 	_, _, err = mr.Registry.Register(bitxid.DocOption{
@@ -326,16 +348,19 @@ func (mm *MethodManager) Register(caller, method string, docAddr string, docHash
 		Hash: docHash,
 	})
 	if err != nil {
-		return boltvm.Error("register err, " + err.Error())
+		msg := fmt.Sprintf("register err, %s", err.Error())
+		return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), msg))
 	}
 
 	item, _, _, err = mr.Registry.Resolve(bitxid.DID(method))
 	if err != nil {
-		return boltvm.Error(err.Error())
+		return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), err.Error()))
 	}
 
 	mm.SetObject(MethodRegistryKey, mr)
-	data, err := bitxid.Struct2Bytes(item)
+	return boltvm.Success(nil)
+
+	/*data, err := bitxid.Struct2Bytes(item)
 
 	// ibtp without index
 	ibtps, err := mr.constructIBTPs(
@@ -352,28 +377,25 @@ func (mm *MethodManager) Register(caller, method string, docAddr string, docHash
 		data,
 	)
 	if err != nil {
-		return boltvm.Error(err.Error())
+		return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), err.Error()))
 	}
 
 	ibtpsBytes, err := ibtps.Marshal()
 	if err != nil {
-		return boltvm.Error(err.Error())
+		return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), err.Error()))
 	}
 
 	return mm.CrossInvoke(constant.InterRelayBrokerContractAddr.String(), "RecordIBTPs", pb.Bytes(ibtpsBytes))
 
 	// return boltvm.Success(nil)
 	// TODO: construct chain multi sigs
-	// return mr.synchronizeOut(string(callerDID), item, [][]byte{[]byte(".")})
+	// return mr.synchronizeOut(string(callerDID), item, [][]byte{[]byte(".")})*/
 }
 
 func (mr *MethodRegistry) constructIBTPs(contractID, function, fromMethod string, toMethods []string, data []byte) (*pb.IBTPs, error) {
 	content := pb.Content{
-		SrcContractId: contractID,
-		DstContractId: contractID,
-		Func:          function,
-		Args:          [][]byte{[]byte(fromMethod), []byte(data)},
-		Callback:      "",
+		Func: function,
+		Args: [][]byte{[]byte(fromMethod), []byte(data)},
 	}
 
 	bytes, err := content.Marshal()
@@ -395,12 +417,11 @@ func (mr *MethodRegistry) constructIBTPs(contractID, function, fromMethod string
 	for _, toMethod := range toMethods {
 		to := toMethod //
 		ibtps = append(ibtps, &pb.IBTP{
-			From:      from,
-			To:        to,
-			Type:      pb.IBTP_INTERCHAIN,
-			Timestamp: time.Now().UnixNano(),
-			Proof:     []byte("1"),
-			Payload:   payload,
+			From:    from,
+			To:      to,
+			Type:    pb.IBTP_INTERCHAIN,
+			Proof:   []byte("1"),
+			Payload: payload,
 		})
 	}
 
@@ -421,17 +442,17 @@ func (mm *MethodManager) Update(caller, method string, docAddr string, docHash [
 	mr := mm.getMethodRegistry()
 
 	if !mr.Initalized {
-		return boltvm.Error("Registry not initialized")
+		return boltvm.Error(boltvm.DidRegistryNotInitCode, string(boltvm.DidRegistryNotInitMsg))
 	}
 
 	callerDID := bitxid.DID(caller)
 	if mm.Caller() != callerDID.GetAddress() {
-		return boltvm.Error(callerNotMatchError(mm.Caller(), caller))
+		return boltvm.Error(boltvm.DidCallerNotMatchCode, fmt.Sprintf(string(boltvm.DidCallerNotMatchMsg), mm.Caller(), caller))
 	}
 
 	item, _, _, err := mr.Registry.Resolve(bitxid.DID(method))
 	if item.Owner != callerDID {
-		return boltvm.Error(methodNotBelongError(method, caller))
+		return boltvm.Error(boltvm.DidMethodNotBelongCode, fmt.Sprintf(string(boltvm.DidMethodNotBelongMsg), method, caller))
 	}
 	_, _, err = mr.Registry.Update(bitxid.DocOption{
 		ID:   bitxid.DID(method),
@@ -439,7 +460,8 @@ func (mm *MethodManager) Update(caller, method string, docAddr string, docHash [
 		Hash: docHash,
 	})
 	if err != nil {
-		return boltvm.Error("update err, " + err.Error())
+		msg := fmt.Sprintf("update err, %s", err.Error())
+		return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), msg))
 	}
 
 	mm.SetObject(MethodRegistryKey, mr)
@@ -451,12 +473,12 @@ func (mm *MethodManager) Resolve(method string) *boltvm.Response {
 	mr := mm.getMethodRegistry()
 
 	if !mr.Initalized {
-		return boltvm.Error("Registry not initialized")
+		return boltvm.Error(boltvm.DidRegistryNotInitCode, string(boltvm.DidRegistryNotInitMsg))
 	}
 
 	item, _, exist, err := mr.Registry.Resolve(bitxid.DID(method))
 	if err != nil {
-		return boltvm.Error(err.Error())
+		return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), err.Error()))
 	}
 
 	methodInfo := MethodInfo{}
@@ -505,7 +527,7 @@ func (mm *MethodManager) Resolve(method string) *boltvm.Response {
 
 	b, err := bitxid.Struct2Bytes(methodInfo)
 	if err != nil {
-		return boltvm.Error(err.Error())
+		return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), err.Error()))
 	}
 
 	return boltvm.Success(b)
@@ -517,25 +539,25 @@ func (mm *MethodManager) Freeze(caller, method string, sig []byte) *boltvm.Respo
 	mr := mm.getMethodRegistry()
 
 	if !mr.Initalized {
-		return boltvm.Error("Registry not initialized")
+		return boltvm.Error(boltvm.DidRegistryNotInitCode, string(boltvm.DidRegistryNotInitMsg))
 	}
 
 	callerDID := bitxid.DID(caller)
 	if mm.Caller() != callerDID.GetAddress() {
-		return boltvm.Error(callerNotMatchError(mm.Caller(), caller))
+		return boltvm.Error(boltvm.DidCallerNotMatchCode, fmt.Sprintf(string(boltvm.DidCallerNotMatchMsg), mm.Caller(), caller))
 	}
 	if !mr.Registry.HasAdmin(callerDID) { // require Admin
-		return boltvm.Error("caller(" + string(callerDID) + ") has no permission")
+		return boltvm.Error(boltvm.DidCallerNoPermissionCode, fmt.Sprintf(string(boltvm.DidCallerNoPermissionMsg), string(callerDID)))
 	}
 
 	item, _, _, err := mr.Registry.Resolve(bitxid.DID(method))
 	if item.Status == bitxid.Frozen {
-		return boltvm.Error(method + " was already frozen")
+		return boltvm.Error(boltvm.DidMethodFrozenCode, fmt.Sprintf(string(boltvm.DidMethodFrozenMsg), method))
 	}
 
 	err = mr.Registry.Freeze(bitxid.DID(method))
 	if err != nil {
-		return boltvm.Error(err.Error())
+		return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), err.Error()))
 	}
 
 	mm.SetObject(MethodRegistryKey, mr)
@@ -548,25 +570,25 @@ func (mm *MethodManager) UnFreeze(caller, method string, sig []byte) *boltvm.Res
 	mr := mm.getMethodRegistry()
 
 	if !mr.Initalized {
-		return boltvm.Error("Registry not initialized")
+		return boltvm.Error(boltvm.DidRegistryNotInitCode, string(boltvm.DidRegistryNotInitMsg))
 	}
 
 	callerDID := bitxid.DID(caller)
 	if mm.Caller() != callerDID.GetAddress() {
-		return boltvm.Error(callerNotMatchError(mm.Caller(), caller))
+		return boltvm.Error(boltvm.DidCallerNotMatchCode, fmt.Sprintf(string(boltvm.DidCallerNotMatchMsg), mm.Caller(), caller))
 	}
 	if !mr.Registry.HasAdmin(callerDID) { // require Admin
-		return boltvm.Error("caller(" + string(callerDID) + ") has no permission")
+		return boltvm.Error(boltvm.DidCallerNoPermissionCode, fmt.Sprintf(string(boltvm.DidCallerNoPermissionMsg), string(callerDID)))
 	}
 
 	item, _, _, err := mr.Registry.Resolve(bitxid.DID(method))
 	if item.Status != bitxid.Frozen {
-		return boltvm.Error(method + " was not frozen")
+		return boltvm.Error(boltvm.DidMethodNotFrozenCode, fmt.Sprintf(string(boltvm.DidMethodNotFrozenMsg), method))
 	}
 
 	err = mr.Registry.UnFreeze(bitxid.DID(method))
 	if err != nil {
-		return boltvm.Error(err.Error())
+		return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), err.Error()))
 	}
 
 	mm.SetObject(MethodRegistryKey, mr)
@@ -579,22 +601,22 @@ func (mm *MethodManager) Delete(caller, method string, sig []byte) *boltvm.Respo
 	mr := mm.getMethodRegistry()
 
 	if !mr.Initalized {
-		return boltvm.Error("Registry not initialized")
+		return boltvm.Error(boltvm.DidRegistryNotInitCode, string(boltvm.DidRegistryNotInitMsg))
 	}
 
 	callerDID := bitxid.DID(caller)
 	if mm.Caller() != callerDID.GetAddress() {
-		return boltvm.Error(callerNotMatchError(mm.Caller(), caller))
+		return boltvm.Error(boltvm.DidCallerNotMatchCode, fmt.Sprintf(string(boltvm.DidCallerNotMatchMsg), mm.Caller(), caller))
 	}
 
 	item, _, _, err := mr.Registry.Resolve(bitxid.DID(method))
 	if item.Owner != callerDID {
-		return boltvm.Error("caller(" + string(callerDID) + ") is not the owner of " + method)
+		return boltvm.Error(boltvm.DidMethodNotBelongCode, fmt.Sprintf(string(boltvm.DidMethodNotBelongMsg), method, caller))
 	}
 
 	err = mr.Registry.Delete(bitxid.DID(method))
 	if err != nil {
-		return boltvm.Error(err.Error())
+		return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), err.Error()))
 	}
 
 	mm.SetObject(MethodRegistryKey, mr)
@@ -608,13 +630,14 @@ func (mm *MethodManager) Synchronize(from string, itemb []byte) *boltvm.Response
 	mr := mm.getMethodRegistry()
 
 	if !mr.Initalized {
-		return boltvm.Error("Registry not initialized")
+		return boltvm.Error(boltvm.DidRegistryNotInitCode, string(boltvm.DidRegistryNotInitMsg))
 	}
 
 	item := &bitxid.MethodItem{}
 	err := bitxid.Bytes2Struct(itemb, item)
 	if err != nil {
-		return boltvm.Error("Synchronize err: " + err.Error())
+		msg := fmt.Sprintf("Synchronize err: %s", err.Error())
+		return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), msg))
 	}
 	// TODO: verify multi sigs of from chain
 	// sigs := [][]byte{}
@@ -625,7 +648,8 @@ func (mm *MethodManager) Synchronize(from string, itemb []byte) *boltvm.Response
 
 	err = mr.Registry.Synchronize(item)
 	if err != nil {
-		return boltvm.Error("Synchronize err: " + err.Error())
+		msg := fmt.Sprintf("Synchronize err: %s", err.Error())
+		return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), msg))
 	}
 
 	mm.SetObject(MethodRegistryKey, mr)
@@ -638,29 +662,26 @@ func (mm *MethodManager) synchronizeOut(from string, item *bitxid.MethodItem, si
 
 	itemBytes, err := bitxid.Struct2Bytes(item)
 	if err != nil {
-		return boltvm.Error(err.Error())
+		return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), err.Error()))
 	}
 	sigsBytes, err := bitxid.Struct2Bytes(item)
 	if err != nil {
-		return boltvm.Error(err.Error())
+		return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), err.Error()))
 	}
 	content := pb.Content{
-		SrcContractId: mm.Callee(),
-		DstContractId: mm.Callee(),
-		Func:          "Synchronize",
-		Args:          [][]byte{[]byte(from), itemBytes, sigsBytes},
-		Callback:      "",
+		Func: "Synchronize",
+		Args: [][]byte{[]byte(from), itemBytes, sigsBytes},
 	}
 	bytes, err := content.Marshal()
 	if err != nil {
-		return boltvm.Error(err.Error())
+		return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), err.Error()))
 	}
 	payload, err := json.Marshal(pb.Payload{
 		Encrypted: false,
 		Content:   bytes,
 	})
 	if err != nil {
-		return boltvm.Error(err.Error())
+		return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), err.Error()))
 	}
 	fromChainID := mr.IDConverter[mr.SelfID]
 	for _, child := range mr.ChildIDs {
@@ -672,7 +693,7 @@ func (mm *MethodManager) synchronizeOut(from string, item *bitxid.MethodItem, si
 		}
 		data, err := ibtp.Marshal()
 		if err != nil {
-			return boltvm.Error(err.Error())
+			return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), err.Error()))
 		}
 		res := mm.CrossInvoke(constant.InterchainContractAddr.String(), "HandleDID", pb.Bytes(data))
 		if !res.Ok {
@@ -710,7 +731,7 @@ func (mm *MethodManager) GetAdmins() *boltvm.Response {
 	admins := mr.Registry.GetAdmins()
 	data, err := json.Marshal(admins)
 	if err != nil {
-		return boltvm.Error(err.Error())
+		return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), err.Error()))
 	}
 	return boltvm.Success([]byte(data))
 }
@@ -722,15 +743,15 @@ func (mm *MethodManager) AddAdmin(caller string, adminToAdd string) *boltvm.Resp
 
 	callerDID := bitxid.DID(caller)
 	if mm.Caller() != callerDID.GetAddress() {
-		return boltvm.Error(callerNotMatchError(mm.Caller(), caller))
+		return boltvm.Error(boltvm.DidCallerNotMatchCode, fmt.Sprintf(string(boltvm.DidCallerNotMatchMsg), mm.Caller(), caller))
 	}
 	if !mr.isSuperAdmin(callerDID) { // require Admin
-		return boltvm.Error("caller(" + string(callerDID) + ") doesn't have enough permission")
+		return boltvm.Error(boltvm.DidCallerNoEnoughPermissionCode, fmt.Sprintf(string(boltvm.DidCallerNoEnoughPermissionMsg), string(callerDID)))
 	}
 
 	err := mr.Registry.AddAdmin(bitxid.DID(adminToAdd))
 	if err != nil {
-		return boltvm.Error(err.Error())
+		return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), err.Error()))
 	}
 
 	mm.SetObject(MethodRegistryKey, mr)
@@ -744,21 +765,21 @@ func (mm *MethodManager) RemoveAdmin(caller string, adminToRm string) *boltvm.Re
 
 	callerDID := bitxid.DID(caller)
 	if mm.Caller() != callerDID.GetAddress() {
-		return boltvm.Error(callerNotMatchError(mm.Caller(), caller))
+		return boltvm.Error(boltvm.DidCallerNotMatchCode, fmt.Sprintf(string(boltvm.DidCallerNotMatchMsg), mm.Caller(), caller))
 	}
 	if !mr.isSuperAdmin(callerDID) { // require super Admin
-		return boltvm.Error("caller(" + string(callerDID) + ") doesn't have enough permission")
+		return boltvm.Error(boltvm.DidCallerNoEnoughPermissionCode, fmt.Sprintf(string(boltvm.DidCallerNoEnoughPermissionMsg), string(callerDID)))
 	}
 	if !mr.Registry.HasAdmin(bitxid.DID(adminToRm)) {
-		return boltvm.Error("caller (" + caller + ") is not admin")
+		return boltvm.Error(boltvm.DidCallerNoPermissionCode, fmt.Sprintf(string(boltvm.DidCallerNoPermissionMsg), string(callerDID)))
 	}
 	if mr.isSuperAdmin(bitxid.DID(adminToRm)) {
-		return boltvm.Error("cannot rm super admin")
+		return boltvm.Error(boltvm.DidRemoveSuperAdminErrCode, string(boltvm.DidRemoveSuperAdminErrMsg))
 	}
 
 	err := mr.Registry.RemoveAdmin(bitxid.DID(adminToRm))
 	if err != nil {
-		return boltvm.Error(err.Error())
+		return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), err.Error()))
 	}
 
 	mm.SetObject(MethodRegistryKey, mr)
