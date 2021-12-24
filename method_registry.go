@@ -3,14 +3,15 @@ package contracts
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/bitxhub/bitxid"
+	"os"
+
 	"github.com/bitxhub/did-method-registry/converter"
 	"github.com/meshplus/bitxhub-core/agency"
 	"github.com/meshplus/bitxhub-core/boltvm"
 	"github.com/meshplus/bitxhub-model/constant"
 	"github.com/meshplus/bitxhub-model/pb"
+	"github.com/meshplus/bitxid"
 	"github.com/mitchellh/go-homedir"
-	"os"
 )
 
 const (
@@ -60,24 +61,6 @@ type MethodRegistry struct {
 	IDConverter map[bitxid.DID]string
 }
 
-func UnmarshalRegistry(registryBytes []byte) (interface{}, error) {
-	mr := &MethodRegistry{}
-	err := json.Unmarshal(registryBytes, &mr)
-	if err != nil {
-		return nil, err
-	}
-	return mr.Registry, nil
-}
-
-func UnmarshalMethodDocAddr(methodInfoBytes []byte) (interface{}, error) {
-	info := &MethodInfo{}
-	err := bitxid.Bytes2Struct(methodInfoBytes, info)
-	if err != nil {
-		return "", err
-	}
-	return info.DocAddr, nil
-}
-
 // if you need to use registry table, you have to manully load it, so do docdb
 // returns err if registry is nil
 func (mr *MethodRegistry) loadTable(stub boltvm.Stub) error {
@@ -86,6 +69,10 @@ func (mr *MethodRegistry) loadTable(stub boltvm.Stub) error {
 	}
 	mr.Registry.Table = &bitxid.KVTable{
 		Store: converter.StubToStorage(stub),
+	}
+	mr.Registry.Docdb = &bitxid.KVDocDB{
+		Store:     converter.StubToStorage(stub),
+		BasicAddr: ".",
 	}
 	return nil
 }
@@ -97,8 +84,6 @@ func NewMethodManager() agency.Contract {
 
 func init() {
 	agency.RegisterContractConstructor("method registry", constant.MethodRegistryContractAddr.Address(), NewMethodManager)
-	agency.RegisterUnmarshalFunc("registry", UnmarshalRegistry)
-	agency.RegisterUnmarshalFunc("methodDocAddr", UnmarshalMethodDocAddr)
 }
 
 // Init sets up the whole registry,
@@ -321,7 +306,74 @@ func (mm *MethodManager) Audit(caller, method string, status string, sig []byte)
 	return boltvm.Success(nil)
 }
 
-// Register anchors infomation for the method.
+// RegisterWithDoc anchors information for the method.
+func (mm *MethodManager) RegisterWithDoc(caller, method string, docByte []byte) *boltvm.Response {
+	mr := mm.getMethodRegistry()
+
+	if !mr.Initalized {
+		return boltvm.Error(boltvm.DidRegistryNotInitCode, string(boltvm.DidRegistryNotInitMsg))
+	}
+
+	callerDID := bitxid.DID(caller)
+	if mm.Caller() != callerDID.GetAddress() {
+		return boltvm.Error(boltvm.DidCallerNotMatchCode, fmt.Sprintf(string(boltvm.DidCallerNotMatchMsg), mm.Caller(), caller))
+	}
+
+	item, _, check, err := mr.Registry.Resolve(bitxid.DID(method))
+	if !check {
+		return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), err.Error()))
+	}
+
+	if item.Owner != callerDID {
+		return boltvm.Error(boltvm.DidMethodNotBelongCode, fmt.Sprintf(string(boltvm.DidMethodNotBelongMsg), method, caller))
+	}
+
+	methodDoc := &bitxid.MethodDoc{}
+	if err := json.Unmarshal(docByte, methodDoc); err != nil {
+		return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), err.Error()))
+	}
+
+	_, _, err = mr.Registry.Register(bitxid.DocOption{
+		ID:      bitxid.DID(method),
+		Content: methodDoc,
+	})
+	if err != nil {
+		msg := fmt.Sprintf("register err, %s", err.Error())
+		return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), msg))
+	}
+
+	//check doc is saved
+	_, _, _, err = mr.Registry.Resolve(bitxid.DID(method))
+	if err != nil {
+		return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), err.Error()))
+	}
+
+	mm.SetObject(MethodRegistryKey, mr)
+	return boltvm.Success(nil)
+}
+
+// ResolveWithDoc get method doc for the method in this registry
+func (mm *MethodManager) ResolveWithDoc(method string) *boltvm.Response {
+	mr := mm.getMethodRegistry()
+
+	if !mr.Initalized {
+		return boltvm.Error(boltvm.DidRegistryNotInitCode, string(boltvm.DidRegistryNotInitMsg))
+	}
+
+	_, doc, _, err := mr.Registry.Resolve(bitxid.DID(method))
+	if err != nil {
+		return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), err.Error()))
+	}
+
+	docByte, err := json.Marshal(doc)
+	if err != nil {
+		return boltvm.Error(boltvm.DidInternalErrCode, fmt.Sprintf(string(boltvm.DidInternalErrMsg), err.Error()))
+	}
+
+	return boltvm.Success(docByte)
+}
+
+// Register anchors information for the method.
 func (mm *MethodManager) Register(caller, method string, docAddr string, docHash []byte, sig []byte) *boltvm.Response {
 	mr := mm.getMethodRegistry()
 

@@ -1,9 +1,9 @@
 package register
 
 import (
-	"github.com/bitxhub/bitxid"
 	"github.com/meshplus/bitxhub-core/agency"
 	"github.com/meshplus/bitxhub-kit/storage"
+	"github.com/meshplus/bitxid"
 	"github.com/sirupsen/logrus"
 )
 

@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/bitxhub/bitxid"
 	"github.com/bitxhub/did-method-registry/converter"
 	"github.com/meshplus/bitxhub-core/agency"
 	"github.com/meshplus/bitxhub-core/boltvm"
 	"github.com/meshplus/bitxhub-model/constant"
+	"github.com/meshplus/bitxid"
 	"github.com/treasersimplifies/cstr"
 )
 
